@@ -1,0 +1,54 @@
+openapi: 3.1.0
+info:
+  title: Web App para la gestión de listas de deseos
+  description: API REST para gestionar listas de deseos y Donaciones
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api
+    description: Servidor local
+
+tags:
+  - name: Autenticación
+    description: Operaciones relacionadas con la autenticación de usuarios
+
+paths:
+
+/auth/login:
+  post:
+    tags: [Autenticación]
+    summary: Iniciar sesión 
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+              - password
+            properties:
+              email:
+                type: string
+                format: email
+              password:
+                type: string
+                format: password
+    responses:
+      '200':
+        description: Inicio de sesión completado correctamente
+      '401':
+        description: Credenciales inválidas
+
+/auth/logout:
+  post:
+    tags: [Autenticación]
+    summary: Cerrar sesión
+    responses:
+      '200':
+        description: Cierre de sesión completado correctamente
+      '401':
+        description: Usuario no autenticado
+    
+
+  
