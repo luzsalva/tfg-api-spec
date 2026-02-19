@@ -11,11 +11,21 @@ servers:
 tags:
   - name: Autenticación
     description: Operaciones relacionadas con la autenticación de usuarios
+  - name: child
+    description: Operaciones relacionadas con los usuarios de tipo niño
+  - name: items
+    description: Operaciones relacionadas con los ítems de las listas de deseos
+  - name: donacion
+    description: Operaciones relacionadas con las donaciones de ítems
+
+security:
+  - bearerAuth: []
 
 paths:
 
 /auth/login:
   post:
+    security: []
     tags: [Autenticación]
     summary: Iniciar sesión 
     requestBody:
@@ -49,6 +59,331 @@ paths:
         description: Cierre de sesión completado correctamente
       '401':
         description: Usuario no autenticado
-    
+
+/auth/register:
+  post:
+    tags: [Autenticación]
+    summary: Registrar un nuevo usuario (niño o adulto)
+    description: El campo role determina el tipo de usuario a registrar
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - nombre
+              - apellidos
+              - email
+              - password
+              - rol
+              - fechaNacimiento
+              - direccion
+            properties:
+              nombre:
+                type: string
+              apellidos:
+                type: string
+              email:
+                type: string
+                format: email
+              password:
+                type: string
+                format: password
+              rol:
+                type: string
+                enum: [niño, adulto, validador]
+              fechaNacimiento:
+                type: string
+                format: date
+              direccion:
+                type: string
+    responses:
+      '201':
+        description: Usuario registrado correctamente
+      '400':
+        description: Faltan datos de entrada o tienen un formato incorrecto
+      '409':
+        description: El email ya está registrado
+
+/children/{childId}:
+  get:
+    tags: [child]
+    summary: Obtener información (perfil) de un niño por su ID
+    parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Perfil infantil encontrado correctamente
+      '404':
+        description: Perfil infantil no encontrado
+
+  patch:
+    tags: [child]
+    summary: Actualizar perfil de un niño por su ID
+    parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              nombre:
+                type: string
+              apellidos:
+                type: string
+              fechaNacimiento:
+                type: string
+                format: date
+              direccion:
+                type: string
+    responses:
+      '200':
+        description: Perfil infantil actualizado correctamente
+      '400':
+        description: Faltan datos de entrada o tienen un formato incorrecto
+      '404':
+        description: Perfil infantil no encontrado
+
+/children/{childId}/wishlist:
+  get:
+    tags: [child]
+    summary: Obtener la lista de deseos de un niño por su ID
+    parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Lista de deseos encontrada correctamente
+      '404':
+        description: Lista de deseos no encontrada para el niño especificado
+
+/children/{childId}/wishlist/items:
+  post:
+    tags: [child]
+    summary: Añadir un nuevo ítem a la lista de deseos de un niño por su ID
+    parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - nombre
+              - descripcion
+              - imagen
+              - categoria
+            properties:
+              nombre:
+                type: string
+              descripcion:
+                type: string
+              imagen:
+                type: string
+              categoria:
+                type: string
+    responses:
+      '201':
+        description: Ítem añadido a la lista de deseos correctamente
+      '400':
+        description: Faltan datos o tienen un formato incorrecto
+      '404':
+        description: Lista de deseos no encontrada para el niño especificado
+
+/items/{itemId}:
+  get:
+    tags: [items]
+    summary: Obtener información detallada de un ítem por su ID
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Ítem encontrado correctamente
+      '404':
+        description: Ítem no encontrado
+
+  patch:
+    tags: [items]
+    summary: Actualizar información de un ítem por su ID
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              nombre:
+                type: string
+              descripcion:
+                type: string
+              imagen:
+                type: string
+              categoria:
+                type: string
+    responses:
+      '200':
+        description: Ítem actualizado correctamente
+      '400':
+        description: Faltan datos o tienen un formato incorrecto
+  
+  delete:
+    tags: [items]
+    summary: Eliminar un ítem por su ID
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '204':
+        description: Ítem eliminado correctamente
+      '404':
+        description: Ítem no encontrado
+
+/items:
+  get:
+    tags: [items]
+    summary: Obtener una lista de ítems con filtros opcionales
+    parameters:
+      - name: categoria
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: nombre
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: distancia
+        in: query
+        required: false
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Lista de ítems obtenida correctamente
+
+/items/{itemId}/donar:
+  post:
+    tags: [donacion]
+    summary: Realizar una donación de un ítem específico por su ID
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - etiqueta de envío
+            properties:
+              etiqueta de envío:
+                type: string
+                enum: [SI, NO]
+    responses:
+      '200':
+        description: Reserva realizada correctamente
+      '400':
+        description: Faltan datos o tienen un formato incorrecto
+      '404':
+        description: Ítem no encontrado
+      '409':
+        description: El ítem ya ha sido reservado por otro usuario
+
+/donaciones:
+  get:
+    tags: [donacion]
+    summary: Obtener una lista de donaciones realizadas por el usuario autenticado
+    parameters:
+      - name: estado
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [reservado, en punto de entrega, en tránsito, entregado]
+    responses:
+      '200':
+        description: Lista de donaciones obtenida correctamente
+      '401':
+        description: Usuario no autenticado
+      
+/donaciones/{donacionId}:
+  delete:
+    tags: [donacion]
+    summary: Cancelar una donación por su ID
+    parameters:
+      - name: donacionId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '204':
+        description: Donación cancelada correctamente
+      '401':
+        description: Usuario no autenticado
+      '404':
+        description: Donación no encontrada
+
+  get:
+    tags: [donacion]
+    summary: Obtener detalles de una donación por su ID
+    description: Estados y fechas del proceso de donación
+    parameters:
+      - name: donacionId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Detalles de la donación obtenidos correctamente
+      '401':
+        description: Usuario no autenticado
+      '404':
+        description: Donación no encontrada
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
 
   
