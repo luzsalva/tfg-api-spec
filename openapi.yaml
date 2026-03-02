@@ -11,7 +11,7 @@ servers:
 tags:
   - name: Autenticación
     description: Operaciones relacionadas con la autenticación de usuarios
-  - name: child
+  - name: children
     description: Operaciones relacionadas con los usuarios de tipo niño
   - name: items
     description: Operaciones relacionadas con los ítems de las listas de deseos
@@ -33,83 +33,71 @@ paths:
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - email
-              - password
-            properties:
-              email:
-                type: string
-                format: email
-              password:
-                type: string
-                format: password
+            $ref: '#/components/schemas/LoginRequest'
     responses:
       '200':
         description: Inicio de sesión completado correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginResponse'
       '401':
         description: Credenciales inválidas
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
 /auth/logout:
   post:
+    security: []
     tags: [Autenticación]
-    summary: Cerrar sesión
+    summary: Cerrar sesión invalidando el token JWT del usuario
     responses:
-      '200':
+      '204':
         description: Cierre de sesión completado correctamente
       '401':
         description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
 /auth/register:
   post:
     tags: [Autenticación]
     summary: Registrar un nuevo usuario (niño o adulto)
-    description: El campo role determina el tipo de usuario a registrar
+    description: El campo rol determina el tipo de usuario a registrar
     requestBody:
       required: true
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - nombre
-              - apellidos
-              - email
-              - password
-              - rol
-              - fechaNacimiento
-              - direccion
-            properties:
-              nombre:
-                type: string
-              apellidos:
-                type: string
-              email:
-                type: string
-                format: email
-              password:
-                type: string
-                format: password
-              rol:
-                type: string
-                enum: [niño, adulto, validador]
-              fechaNacimiento:
-                type: string
-                format: date
-              direccion:
-                type: string
+            $ref: '#/components/schemas/RegisterRequest'
     responses:
       '201':
         description: Usuario registrado correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Usuario'
       '400':
         description: Faltan datos de entrada o tienen un formato incorrecto
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
       '409':
         description: El email ya está registrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
 /children/{childId}:
   get:
-    tags: [child]
-    summary: Obtener información (perfil) de un niño por su ID
+    tags: [children]
+    summary: Obtener información (perfil) de un niño por su id
     parameters:
       - name: childId
         in: path
@@ -119,12 +107,20 @@ paths:
     responses:
       '200':
         description: Perfil infantil encontrado correctamente
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/perfilInfantil'
       '404':
         description: Perfil infantil no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
   patch:
-    tags: [child]
-    summary: Actualizar perfil de un niño por su ID
+    tags: [children]
+    summary: Actualizar perfil de un niño por su id
     parameters:
       - name: childId
         in: path
@@ -147,72 +143,34 @@ paths:
                 format: date
               direccion:
                 type: string
+              descripcion:
+                type: string
     responses:
       '200':
         description: Perfil infantil actualizado correctamente
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/perfilInfantil'
       '400':
         description: Faltan datos de entrada o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       '404':
         description: Perfil infantil no encontrado
-
-/children/{childId}/wishlist:
-  get:
-    tags: [child]
-    summary: Obtener la lista de deseos de un niño por su ID
-    parameters:
-      - name: childId
-        in: path
-        required: true
-        schema:
-          type: integer
-    responses:
-      '200':
-        description: Lista de deseos encontrada correctamente
-      '404':
-        description: Lista de deseos no encontrada para el niño especificado
-
-/children/{childId}/wishlist/items:
-  post:
-    tags: [child]
-    summary: Añadir un nuevo ítem a la lista de deseos de un niño por su ID
-    parameters:
-      - name: childId
-        in: path
-        required: true
-        schema:
-          type: integer
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            required:
-              - nombre
-              - descripcion
-              - imagen
-              - categoria
-            properties:
-              nombre:
-                type: string
-              descripcion:
-                type: string
-              imagen:
-                type: string
-              categoria:
-                type: string
-    responses:
-      '201':
-        description: Ítem añadido a la lista de deseos correctamente
-      '400':
-        description: Faltan datos o tienen un formato incorrecto
-      '404':
-        description: Lista de deseos no encontrada para el niño especificado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
 /items/{itemId}:
   get:
     tags: [items]
-    summary: Obtener información detallada de un ítem por su ID
+    summary: Obtener información detallada de un ítem por su id
+    description: Obtener información detallada de un ítem, ya sea de 
+                 la lista de deseos o del buscador de ítems
     parameters:
       - name: itemId
         in: path
@@ -222,12 +180,21 @@ paths:
     responses:
       '200':
         description: Ítem encontrado correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
       '404':
         description: Ítem no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
   patch:
     tags: [items]
-    summary: Actualizar información de un ítem por su ID
+    summary: Actualizar información de un deseo por su ID
+    description: Actualizar información de un ítem específico en la lista de deseos por su ID.
     parameters:
       - name: itemId
         in: path
@@ -252,12 +219,26 @@ paths:
     responses:
       '200':
         description: Ítem actualizado correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
       '400':
         description: Faltan datos o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Ítem no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
   
   delete:
     tags: [items]
-    summary: Eliminar un ítem por su ID
+    summary: Eliminar un ítem de la lista de deseos por su id
     parameters:
       - name: itemId
         in: path
@@ -269,11 +250,15 @@ paths:
         description: Ítem eliminado correctamente
       '404':
         description: Ítem no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
 /items:
   get:
     tags: [items]
-    summary: Obtener una lista de ítems con filtros opcionales
+    summary: Obtener una lista de ítems con filtros opcionales. Si se le pasa un childId es el concepto de lista de deseos. 
     parameters:
       - name: categoria
         in: query
@@ -290,14 +275,55 @@ paths:
         required: false
         schema:
           type: integer
+      - name: childId
+        in: query
+        required: false
+        schema:
+          type: integer
     responses:
       '200':
         description: Lista de ítems obtenida correctamente
+  
+  post:
+    tags: [items]
+    summary: Añadir un nuevo ítem a la lista de deseos de un niño por su id
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            allOf:
+              - $ref: '#/components/schemas/crearItemRequest'
+              - type: object
+                required:
+                  - childId
+                properties:
+                  childId:
+                    type: integer
+    responses:
+      '201':
+        description: Ítem añadido a la lista de deseos correctamente
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+      '400':
+        description: Faltan datos o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Lista de deseos no encontrada para el niño especificado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
-/items/{itemId}/donar:
+/donaciones/{itemId}:
   post:
     tags: [donacion]
-    summary: Realizar una donación de un ítem específico por su ID
+    summary: Realizar una donación de un ítem específico por su id
     parameters:
       - name: itemId
         in: path
@@ -311,37 +337,63 @@ paths:
           schema:
             type: object
             required:
-              - etiqueta de envío
+              - etiquetaEnvio
             properties:
               etiqueta de envío:
                 type: string
                 enum: [SI, NO]
     responses:
-      '200':
-        description: Reserva realizada correctamente
+      '201':
+        description: Donación creada correctamente
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Donacion'
       '400':
         description: Faltan datos o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       '404':
         description: Ítem no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       '409':
         description: El ítem ya ha sido reservado por otro usuario
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
 /donaciones:
   get:
     tags: [donacion]
-    summary: Obtener una lista de donaciones realizadas por el usuario autenticado
+    summary: Obtener una lista de donaciones realizadas por el usuario
     parameters:
       - name: estado
         in: query
         required: false
         schema:
           type: string
-          enum: [reservado, en punto de entrega, en tránsito, entregado]
+          enum: [reservado, en punto de entrega, en tránsito, entregado, cancelado]
     responses:
       '200':
         description: Lista de donaciones obtenida correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Donacion'
       '401':
         description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       
 /donaciones/{donacionId}:
   delete:
@@ -358,8 +410,16 @@ paths:
         description: Donación cancelada correctamente
       '401':
         description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       '404':
         description: Donación no encontrada
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
   get:
     tags: [donacion]
@@ -374,10 +434,22 @@ paths:
     responses:
       '200':
         description: Detalles de la donación obtenidos correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Donacion'
       '401':
         description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       '404':
         description: Donación no encontrada
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
 
 components:
   securitySchemes:
@@ -386,4 +458,212 @@ components:
       scheme: bearer
       bearerFormat: JWT
 
+  schemas:
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+
+    LoginResponse:
+      type: object
+      required:
+        - token
+        - user
+      properties:
+        token:
+          type: string
+          description: Token JWT 
+        user:
+          $ref: '#/components/schemas/User'
+
+    ErrorResponse:
+      type: object
+      required:
+        - codigo
+        - mensaje
+      properties:
+        codigo:
+          type: string
+          description: Código del error
+        mensaje:
+          type: string
+          description: Descripción del error ocurrido
+        detalles:
+          type: array
+          description: Información adicional sobre el error (opcional)
+          items:
+            type: string
+            required:
+              - campo
+              - issue
+            properties:
+              campo:
+                type: string
+                description: Nombre del campo relacionado con el error
+                example: "password"
+              issue:
+                type: string
+                description: Descripción del error específico para el campo
+    
+    RegisterRequest:
+      type: object
+      required:
+        - email
+        - password
+        - nombre
+        - apellidos
+        - rol
+        - fechaNacimiento
+        - direccion
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+        nombre:
+          type: string
+        apellidos:
+          type: string
+        rol:
+          type: string
+          enum: [child, adulto, validador]
+        fechaNacimiento:
+          type: string
+          format: date
+        direccion:
+          type: string
+
+    Usuario:
+      type: object
+      required:
+        - userId
+        - email
+        - nombre
+        - apellidos
+        - rol
+        - fechaNacimiento
+        - direccion
+      properties:
+        userId:
+          type: integer
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+        apellidos:
+          type: string
+        rol:
+          type: string
+          enum: [child, adulto, validador]
+        fechaNacimiento:
+          type: string
+          format: date
+        direccion:
+          type: string
+    
+    perfilInfantil:
+      type: object
+      required:
+        - childId
+        - email
+        - nombre
+        - apellidos
+        - fechaNacimiento
+        - direccion
+        - descripcion
+      properties:
+        childId:
+          type: integer
+        email:
+          type: string
+          format: email
+        nombre:
+          type: string
+        apellidos:
+          type: string
+        fechaNacimiento:
+          type: string
+          format: date
+        direccion:
+          type: string
+          descripcion: Dirección donde se entregarán las donaciones
+        descripcion:
+          type: string
+          descripcion: Información adicional sobre el niño (gustos, situación, etc.)
+      
+    Item:
+      type: object
+      required:
+        - itemId
+        - nombre
+        - descripcion
+        - imagen
+        - categoria
+        - estado
+      properties:
+        itemId:
+          type: integer
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagen:
+          type: string
+          description: URL de la imagen del ítem
+        categoria:
+          type: string
+        estado:
+          type: string
+          enum: [disponible, reservado, donado]
+
+    crearItemRequest:
+      type: object
+      required:
+        - nombre
+        - descripcion
+        - imagen
+        - categoria
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagen:
+          type: string
+          description: URL de la imagen del ítem
+        categoria:
+          type: string
+
+    Donacion:
+      type: object
+      required:
+        - donacionId
+        - itemId
+        - estado
+        - createdAt
+      properties:
+        donacionId:
+          type: integer
+        itemId:
+          type: integer
+        estado:
+          type: string
+          enum: [reservado, en punto de entrega, en tránsito, entregado]
+        createdAt:
+          type: string
+          format: date-time
+        estado:
+          type: string
+          enum: [reservado, en punto de entrega, en tránsito, entregado]
   
