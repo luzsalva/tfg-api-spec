@@ -283,6 +283,18 @@ paths:
     responses:
       '200':
         description: Lista de ítems obtenida correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Item'
+      '404':
+        description: Lista de deseos no encontrada para el niño especificado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
   
   post:
     tags: [items]
