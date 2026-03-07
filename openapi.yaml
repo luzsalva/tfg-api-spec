@@ -515,13 +515,13 @@ components:
             type: string
             required:
               - campo
-              - issue
+              - problema
             properties:
               campo:
                 type: string
                 description: Nombre del campo relacionado con el error
                 example: "password"
-              issue:
+              problema:
                 type: string
                 description: Descripción del error específico para el campo
     
@@ -533,7 +533,6 @@ components:
         - nombre
         - apellidos
         - rol
-        - fechaNacimiento
         - direccion
       properties:
         email:
