@@ -13,6 +13,8 @@ tags:
     description: Operaciones relacionadas con la autenticación de usuarios
   - name: children
     description: Operaciones relacionadas con los usuarios de tipo niño
+  - name: users
+    description: Operaciones relacionadas con los usuarios (niños y adultos)
   - name: items
     description: Operaciones relacionadas con los ítems de las listas de deseos
   - name: donacion
@@ -110,7 +112,7 @@ paths:
         content:
             application/json:
               schema:
-                $ref: '#/components/schemas/perfilInfantil'
+                $ref: '#/components/schemas/perfilUsuario'
       '404':
         description: Perfil infantil no encontrado
         content:
@@ -118,11 +120,106 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
+/children/{childId}/validar:
   patch:
     tags: [children]
-    summary: Actualizar perfil de un niño por su id
+    summary: Validar el perfil de un niño por su id
+    description: Cambia el estado del perfil del niño a "validado" para que pueda empezar a publicar deseos. 
+                 Solo los validadores pueden realizar esta acción.
     parameters:
       - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - validado
+            properties:
+              validado:
+                type: boolean
+                description: Indica si el perfil del niño ha sido validado o no
+              comentario:
+                type: string
+                description: Comentario del validador sobre la validación del perfil infantil
+    responses:
+      '200':
+        description: Perfil infantil validado correctamente
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/perfilUsuario'
+      '400':
+        description: Datos inválidos
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Validador no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no es un validador
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Perfil infantil no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/users 
+  get:
+    tags: [users]
+    summary: Buscar perfiles de donantes por filtros opcionales
+    parameters:
+      - name: nombre
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: apellidos
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: minDonaciones
+        in: query
+        required: false
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Lista de perfiles de donantes obtenida correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/perfilUsuario'
+      '400':
+        description: Filtros con formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+/users/{userId}:
+  patch:
+    tags: [users]
+    summary: Actualizar perfil de un usuario por su id
+    parameters:
+      - name: userId
         in: path
         required: true
         schema:
@@ -147,11 +244,11 @@ paths:
                 type: string
     responses:
       '200':
-        description: Perfil infantil actualizado correctamente
+        description: Perfil de usuario actualizado correctamente
         content:
             application/json:
               schema:
-                $ref: '#/components/schemas/perfilInfantil'
+                $ref: '#/components/schemas/perfilUsuario'
       '400':
         description: Faltan datos de entrada o tienen un formato incorrecto
         content:
@@ -159,7 +256,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Perfil infantil no encontrado
+        description: Perfil de usuario no encontrado
         content:
           application/json:
             schema:
@@ -185,7 +282,7 @@ paths:
             schema:
               $ref: '#/components/schemas/Item'
       '404':
-        description: Ítem no encontrado
+        description: El ítem no existe
         content:
           application/json:
             schema:
@@ -230,7 +327,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Ítem no encontrado
+        description: El ítem no existe
         content:
           application/json:
             schema:
@@ -258,7 +355,8 @@ paths:
 /items:
   get:
     tags: [items]
-    summary: Obtener una lista de ítems con filtros opcionales. Si se le pasa un childId es el concepto de lista de deseos. 
+    summary: Obtener una lista de ítems con filtros opcionales. 
+             Si se le pasa un childId es el concepto de lista de deseos. 
     parameters:
       - name: categoria
         in: query
@@ -289,8 +387,14 @@ paths:
               type: array
               items:
                 $ref: '#/components/schemas/Item'
-      '404':
-        description: Lista de deseos no encontrada para el niño especificado
+      '400':
+        description: Filtros con formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Niño no autenticado
         content:
           application/json:
             schema:
@@ -304,14 +408,7 @@ paths:
       content:
         application/json:
           schema:
-            allOf:
-              - $ref: '#/components/schemas/crearItemRequest'
-              - type: object
-                required:
-                  - childId
-                properties:
-                  childId:
-                    type: integer
+            $ref: '#/components/schemas/crearItemRequest'
     responses:
       '201':
         description: Ítem añadido a la lista de deseos correctamente
@@ -325,8 +422,69 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Niño no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/items/{itemId}/validar:
+  patch:
+    tags: [items]
+    summary: Validar un ítem y cambiar su estado
+    description: Cambia su estado a "publicado" una vez revisado para que esté disponible en el buscador de ítems para los donantes y
+                 cambia el estado a "en transito" si el ítem ha sido entregado en el punto de entrega y corresponde a la descripción del ítem. 
+                 Solo los validadores pueden realizar esta acción.
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+    
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - estado
+            properties:
+              estado:
+                type: string
+                enum: [publicado, validando, recibido en punto de entrega, en tránsito, cancelado]
+              comentario:
+                type: string
+                description: Comentario del validador sobre la validación del ítem
+    responses:
+      '200':
+        description: Ítem validado correctamente
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Item'
+      '400':
+        description: Faltan datos o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Validador no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no tiene permisos para validar ítems
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Lista de deseos no encontrada para el niño especificado
+        description: Ítem no encontrado
         content:
           application/json:
             schema:
@@ -380,17 +538,22 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
-/donaciones:
+/donaciones/{userId}:
   get:
     tags: [donacion]
     summary: Obtener una lista de donaciones realizadas por el usuario
     parameters:
+      - name: userId
+        in: path
+        required: true
+        schema:
+          type: integer
       - name: estado
         in: query
         required: false
         schema:
           type: string
-          enum: [reservado, en punto de entrega, en tránsito, entregado, cancelado]
+          enum: [reservado, recibido en punto de entrega, validando, en tránsito, entregado, cancelado]
     responses:
       '200':
         description: Lista de donaciones obtenida correctamente
@@ -583,18 +746,17 @@ components:
         direccion:
           type: string
     
-    perfilInfantil:
+    perfilUsuario:
       type: object
       required:
-        - childId
+        - userId
         - email
         - nombre
         - apellidos
-        - fechaNacimiento
         - direccion
         - descripcion
       properties:
-        childId:
+        userId:
           type: integer
         email:
           type: string
@@ -608,10 +770,16 @@ components:
           format: date
         direccion:
           type: string
-          descripcion: Dirección donde se entregarán las donaciones
+          descripcion: Dirección donde se entregarán las donaciones o de donde es el donante
         descripcion:
           type: string
-          descripcion: Información adicional sobre el niño (gustos, situación, etc.)
+          descripcion: Información adicional sobre el usuario
+        numeroDonaciones:
+          type: integer
+          descripcion: Número total de donaciones realizadas por el usuario adulto
+        validador:
+          type: boolean
+          description: Indica si el perfil infantil está validado o no para publicar deseos
       
     Item:
       type: object
@@ -636,7 +804,7 @@ components:
           type: string
         estado:
           type: string
-          enum: [disponible, reservado, donado]
+          enum: [en validación, publicado, reservado, recibido en punto de entrega, validando, en tránsito, entregado, cancelado]
 
     crearItemRequest:
       type: object
@@ -670,7 +838,7 @@ components:
           type: integer
         estado:
           type: string
-          enum: [reservado, en punto de entrega, en tránsito, entregado]
+          enum: [reservado, recibido en punto de entrega, validando, en tránsito, entregado, cancelado]
         createdAt:
           type: string
           format: date-time
