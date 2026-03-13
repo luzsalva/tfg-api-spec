@@ -68,7 +68,7 @@ paths:
 /auth/register:
   post:
     tags: [Autenticación]
-    summary: Registrar un nuevo usuario (niño o adulto)
+    summary: Registro público de un nuevo usuario (admin o adulto)
     description: El campo rol determina el tipo de usuario a registrar
     requestBody:
       required: true
@@ -91,6 +91,122 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
       '409':
         description: El email ya está registrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/children:
+  get:
+    tags: [children]
+    summary: Obtener una lista de perfiles infantiles con filtros opcionales. 
+    description: Los admins solo verán los perfiles infantiles asociados a su 
+                 organización, mientras que los validadores verán todos los perfiles infantiles.
+    parameters:
+      - name: nombre
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: apellidos
+        in: query
+        required: false
+        schema:
+          type: string
+      - name: validado
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Indica si el perfil infantil está validado o no para publicar deseos
+    responses:
+      '200':
+        description: Lista de perfiles infantiles obtenida correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/perfilUsuario'
+      '400':
+        description: Filtros con formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no tiene permisos para ver perfiles infantiles
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+  post:
+    tags: [children]
+    summary: Registrar un nuevo perfil infantil asociado a un admin
+    description: Solo los admins pueden registrar perfiles infantiles asociados a su organización.
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - email
+              - password
+              - nombre
+              - apellidos
+              - fechaNacimiento
+              - direccion
+            properties:
+              email:
+                type: string
+                format: email
+              password:
+                type: string
+                format: password
+              nombre:
+                type: string
+              apellidos:
+                type: string
+              fechaNacimiento:
+                type: string
+                format: date
+              direccion:
+                type: string
+    responses:
+      '201':
+        description: Perfil infantil registrado correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/perfilUsuario'
+      '400':
+        description: Faltan datos de entrada o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no tiene permisos para registrar perfiles infantiles
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '409':
+        description: El email ya está registrado para otro perfil infantil o adulto
         content:
           application/json:
             schema:
@@ -119,6 +235,20 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
+    
+  delete:
+    tags: [children]
+    summary: Eliminar un perfil infantil por su id.
+    description: Solo los admins pueden eliminar perfiles infantiles asociados a su organización.
+    parameters:
+      - name: childId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '204':
+        description: Perfil infantil eliminado correctamente
 
 /children/{childId}/validar:
   patch:
@@ -143,7 +273,7 @@ paths:
             properties:
               validado:
                 type: boolean
-                description: Indica si el perfil del niño ha sido validado o no
+                description: Indica si el perfil del niño ha sido aprobado o rechazado para publicar deseos
               comentario:
                 type: string
                 description: Comentario del validador sobre la validación del perfil infantil
@@ -179,7 +309,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
-/users 
+/users: 
   get:
     tags: [users]
     summary: Buscar perfiles de donantes por filtros opcionales
@@ -378,6 +508,13 @@ paths:
         required: false
         schema:
           type: integer
+      - name: estado
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [en validación, publicado, reservado, recibido en punto de entrega, en tránsito, entregado, cancelado]
+        description: Filtrar por estado del ítem en la lista de deseos, en el buscador de ítems o en el panel del validador.
     responses:
       '200':
         description: Lista de ítems obtenida correctamente
@@ -402,7 +539,7 @@ paths:
   
   post:
     tags: [items]
-    summary: Añadir un nuevo ítem a la lista de deseos de un niño por su id
+    summary: Añadir un nuevo ítem a la lista de deseos de un niño
     requestBody:
       required: true
       content:
@@ -432,17 +569,16 @@ paths:
 /items/{itemId}/validar:
   patch:
     tags: [items]
-    summary: Validar un ítem y cambiar su estado
-    description: Cambia su estado a "publicado" una vez revisado para que esté disponible en el buscador de ítems para los donantes y
-                 cambia el estado a "en transito" si el ítem ha sido entregado en el punto de entrega y corresponde a la descripción del ítem. 
-                 Solo los validadores pueden realizar esta acción.
+    summary: Validar un ítem o confirmar un cambio de estado sujeto a revisión
+    description: Permite al validador aprobar un ítem para su publicación o confirmar
+                 estados que requieren revisión manual, como la recepción en
+                 punto de entrega o el paso a envío. Solo los validadores pueden realizar esta acción.
     parameters:
       - name: itemId
         in: path
         required: true
         schema:
-          type: integer
-    
+          type: integer   
     requestBody:
       required: true
       content:
@@ -454,7 +590,7 @@ paths:
             properties:
               estado:
                 type: string
-                enum: [publicado, validando, recibido en punto de entrega, en tránsito, cancelado]
+                enum: [publicado, en validación, recibido en punto de entrega, en tránsito, cancelado]
               comentario:
                 type: string
                 description: Comentario del validador sobre la validación del ítem
@@ -509,7 +645,7 @@ paths:
             required:
               - etiquetaEnvio
             properties:
-              etiqueta de envío:
+              etiquetaEnvio:
                 type: string
                 enum: [SI, NO]
     responses:
@@ -553,7 +689,7 @@ paths:
         required: false
         schema:
           type: string
-          enum: [reservado, recibido en punto de entrega, validando, en tránsito, entregado, cancelado]
+          enum: [reservado, recibido en punto de entrega, en validación, en tránsito, entregado, cancelado]
     responses:
       '200':
         description: Lista de donaciones obtenida correctamente
@@ -657,7 +793,7 @@ components:
           type: string
           description: Token JWT 
         user:
-          $ref: '#/components/schemas/User'
+          $ref: '#/components/schemas/Usuario'
 
     ErrorResponse:
       type: object
@@ -675,7 +811,7 @@ components:
           type: array
           description: Información adicional sobre el error (opcional)
           items:
-            type: string
+            type: object
             required:
               - campo
               - problema
@@ -710,10 +846,7 @@ components:
           type: string
         rol:
           type: string
-          enum: [child, adulto, validador]
-        fechaNacimiento:
-          type: string
-          format: date
+          enum: [admin, adulto]
         direccion:
           type: string
 
@@ -725,7 +858,6 @@ components:
         - nombre
         - apellidos
         - rol
-        - fechaNacimiento
         - direccion
       properties:
         userId:
@@ -739,7 +871,7 @@ components:
           type: string
         rol:
           type: string
-          enum: [child, adulto, validador]
+          enum: [child, adulto, admin, validador]
         fechaNacimiento:
           type: string
           format: date
@@ -777,7 +909,7 @@ components:
         numeroDonaciones:
           type: integer
           descripcion: Número total de donaciones realizadas por el usuario adulto
-        validador:
+        validado:
           type: boolean
           description: Indica si el perfil infantil está validado o no para publicar deseos
       
@@ -804,7 +936,7 @@ components:
           type: string
         estado:
           type: string
-          enum: [en validación, publicado, reservado, recibido en punto de entrega, validando, en tránsito, entregado, cancelado]
+          enum: [en validación, publicado, reservado, recibido en punto de entrega, en tránsito, entregado, cancelado]
 
     crearItemRequest:
       type: object
@@ -838,11 +970,8 @@ components:
           type: integer
         estado:
           type: string
-          enum: [reservado, recibido en punto de entrega, validando, en tránsito, entregado, cancelado]
+          enum: [reservado, recibido en punto de entrega, en validación, en tránsito, entregado, cancelado]
         createdAt:
           type: string
           format: date-time
-        estado:
-          type: string
-          enum: [reservado, en punto de entrega, en tránsito, entregado]
   
