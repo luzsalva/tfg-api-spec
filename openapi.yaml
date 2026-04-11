@@ -10,11 +10,11 @@ servers:
 
 tags:
   - name: Autenticación
-    description: Operaciones relacionadas con la autenticación de usuarios
-  - name: children
-    description: Operaciones relacionadas con los usuarios de tipo niño
+    description: Operaciones relacionadas con la autenticación de usuarios de rol donante y fundación
   - name: users
-    description: Operaciones relacionadas con los usuarios (niños y adultos)
+    description: Operaciones relacionadas con los usuarios
+  - name: registros
+    description: Operaciones relacionadas con la validación de registros de fundaciones. Solo para validadores
   - name: items
     description: Operaciones relacionadas con los ítems de las listas de deseos
   - name: donacion
@@ -68,7 +68,7 @@ paths:
 /auth/register:
   post:
     tags: [Autenticación]
-    summary: Registro público de un nuevo usuario (admin o adulto)
+    summary: Registro público de un nuevo usuario (fundación o donante)
     description: El campo rol determina el tipo de usuario a registrar
     requestBody:
       required: true
@@ -96,13 +96,23 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
-/children:
+/users:
+
   get:
-    tags: [children]
-    summary: Obtener una lista de perfiles infantiles con filtros opcionales. 
-    description: Los admins solo verán los perfiles infantiles asociados a su 
-                 organización, mientras que los validadores verán todos los perfiles infantiles.
+    tags: [users]
+    summary: Obtener lista de perfiles de usuarios con filtros opcionales
+    description: Devuelve una lista de perfiles VISIBLES de usuarios aplicando filtros opcionales.
+                Si se filtra por rol=child, este endpoint puede ser usado por fundaciones
+                para consultar sus perfiles infantiles asociados o por validadores para
+                revisar perfiles infantiles. Si se filtra por rol=donante, permite buscar
+                perfiles de donantes, incluyendo filtros como número mínimo de donaciones.
     parameters:
+      - name: rol
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [child, donante]
       - name: nombre
         in: query
         required: false
@@ -113,15 +123,15 @@ paths:
         required: false
         schema:
           type: string
-      - name: validado
+      - name: minDonaciones
         in: query
         required: false
         schema:
-          type: boolean
-        description: Indica si el perfil infantil está validado o no para publicar deseos
+          type: integer
+        description: Filtrar perfiles de donantes por número mínimo de donaciones realizadas
     responses:
       '200':
-        description: Lista de perfiles infantiles obtenida correctamente
+        description: Lista de perfiles obtenida correctamente
         content:
           application/json:
             schema:
@@ -141,16 +151,16 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '403':
-        description: Usuario autenticado no tiene permisos para ver perfiles infantiles
+        description: Usuario autenticado no tiene permisos para consultar estos perfiles
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
   post:
-    tags: [children]
-    summary: Registrar un nuevo perfil infantil asociado a un admin
-    description: Solo los admins pueden registrar perfiles infantiles asociados a su organización.
+    tags: [users]
+    summary: Registrar un nuevo perfil infantil asociado a una fundación
+    description: Solo las fundaciones pueden registrar perfiles infantiles asociados a su organización.
     requestBody:
       required: true
       content:
@@ -186,7 +196,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/perfilUsuario'
+              $ref: '#/components/schemas/PerfilUsuario'
       '400':
         description: Faltan datos de entrada o tienen un formato incorrecto
         content:
@@ -206,42 +216,61 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '409':
-        description: El email ya está registrado para otro perfil infantil o adulto
+        description: El email ya está registrado para otro perfil infantil o donante
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
-/children/{childId}:
+/users/{userId}:
+  
   get:
-    tags: [children]
-    summary: Obtener información (perfil) de un niño por su id
+    tags: [users]
+    summary: Obtener el perfil de un usuario por su id
+    description: >-
+      Devuelve el perfil de un usuario concreto (niño o donante)a partir de su id.
+      Puede ser usado por el propio usuario para consultar su perfil, por un
+      donante para visitar el perfil de otro donante o el perfil del niño
+      asociado a un ítem, por una fundación para ver los perfiles infantiles
+      asociados a su organización y por un validador para revisar cualquier perfil.
     parameters:
-      - name: childId
+      - name: userId
         in: path
         required: true
         schema:
           type: integer
     responses:
       '200':
-        description: Perfil infantil encontrado correctamente
+        description: Perfil de usuario obtenido correctamente
         content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/perfilUsuario'
-      '404':
-        description: Perfil infantil no encontrado
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilUsuario'
+      '401':
+        description: Usuario no autenticado
         content:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
-    
+      '403':
+        description: Usuario autenticado no tiene permisos para consultar este perfil
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Perfil de usuario no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
   delete:
-    tags: [children]
+    tags: [users]
     summary: Eliminar un perfil infantil por su id.
-    description: Solo los admins pueden eliminar perfiles infantiles asociados a su organización.
+    description: Solo las fundaciones pueden eliminar perfiles infantiles asociados a su organización.
     parameters:
-      - name: childId
+      - name: userId
         in: path
         required: true
         schema:
@@ -249,15 +278,19 @@ paths:
     responses:
       '204':
         description: Perfil infantil eliminado correctamente
-
-/children/{childId}/validar:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PerfilUsuario'
+  
   patch:
-    tags: [children]
-    summary: Validar el perfil de un niño por su id
-    description: Cambia el estado del perfil del niño a "validado" para que pueda empezar a publicar deseos. 
-                 Solo los validadores pueden realizar esta acción.
+    tags: [users]
+    summary: Actualizar perfil de un usuario por su id
+    description: Permite actualizar la información de un perfil infantil o donante por su id. 
+                Solo el propio usuario o las fundaciones (en el caso de perfiles infantiles 
+                asociados a su organización) pueden realizar esta acción.
     parameters:
-      - name: childId
+      - name: userId
         in: path
         required: true
         schema:
@@ -267,23 +300,89 @@ paths:
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - validado
-            properties:
-              validado:
-                type: boolean
-                description: Indica si el perfil del niño ha sido aprobado o rechazado para publicar deseos
-              comentario:
-                type: string
-                description: Comentario del validador sobre la validación del perfil infantil
+            $ref: '#/components/schemas/ActualizarPerfilRequest'  
     responses:
       '200':
-        description: Perfil infantil validado correctamente
+        description: Perfil de usuario actualizado correctamente
         content:
             application/json:
               schema:
-                $ref: '#/components/schemas/perfilUsuario'
+                $ref: '#/components/schemas/PerfilUsuario'
+      '400':
+        description: Faltan datos de entrada o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Perfil de usuario no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/registros:
+  
+  get:
+    tags: [registros]
+    summary: Obtener registros de fundaciones con filtros opcionales
+    description: Devuelve la lista de registros asociados al proceso de validación de fundaciones.
+                Usado para que los validadores consulten los registros
+                pendientes de revisión en su panel.
+    parameters:
+      - name: aprobado
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filtrar registros por su estado de aprobación (true=aprobados, false=pendientes o rechazados)
+    responses:
+      '200':
+        description: Lista de registros obtenida correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/RegistroFundacion'
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no es un validador
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/registros/{registroId}:
+  patch:
+    tags: [registros]
+    summary: Validar el registro de una fundación por el id del registro
+    description: Modifica el atributo aprobado a true para que pueda empezar a gestionar perfiles infantiles. 
+                 Solo los validadores pueden realizar esta acción.
+    parameters:
+      - name: registroId
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ActualizarRegistroRequest'
+    responses:
+      '200':
+        description: Registro validado correctamente
+        content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RegistroFundacion'
       '400':
         description: Datos inválidos
         content:
@@ -303,90 +402,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
-        description: Perfil infantil no encontrado
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ErrorResponse'
-
-/users: 
-  get:
-    tags: [users]
-    summary: Buscar perfiles de donantes por filtros opcionales
-    parameters:
-      - name: nombre
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: apellidos
-        in: query
-        required: false
-        schema:
-          type: string
-      - name: minDonaciones
-        in: query
-        required: false
-        schema:
-          type: integer
-    responses:
-      '200':
-        description: Lista de perfiles de donantes obtenida correctamente
-        content:
-          application/json:
-            schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/perfilUsuario'
-      '400':
-        description: Filtros con formato incorrecto
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ErrorResponse'
-/users/{userId}:
-  patch:
-    tags: [users]
-    summary: Actualizar perfil de un usuario por su id
-    parameters:
-      - name: userId
-        in: path
-        required: true
-        schema:
-          type: integer
-    requestBody:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            properties:
-              nombre:
-                type: string
-              apellidos:
-                type: string
-              fechaNacimiento:
-                type: string
-                format: date
-              direccion:
-                type: string
-              descripcion:
-                type: string
-    responses:
-      '200':
-        description: Perfil de usuario actualizado correctamente
-        content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/perfilUsuario'
-      '400':
-        description: Faltan datos de entrada o tienen un formato incorrecto
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ErrorResponse'
-      '404':
-        description: Perfil de usuario no encontrado
+        description: Registro no encontrado
         content:
           application/json:
             schema:
@@ -486,7 +502,7 @@ paths:
   get:
     tags: [items]
     summary: Obtener una lista de ítems con filtros opcionales. 
-             Si se le pasa un childId es el concepto de lista de deseos. 
+             Si se le pasa un userId es el concepto de lista de deseos. 
     parameters:
       - name: categoria
         in: query
@@ -503,7 +519,7 @@ paths:
         required: false
         schema:
           type: integer
-      - name: childId
+      - name: userId
         in: query
         required: false
         schema:
@@ -545,7 +561,7 @@ paths:
       content:
         application/json:
           schema:
-            $ref: '#/components/schemas/crearItemRequest'
+            $ref: '#/components/schemas/CrearItemRequest'
     responses:
       '201':
         description: Ítem añadido a la lista de deseos correctamente
@@ -584,16 +600,7 @@ paths:
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - estado
-            properties:
-              estado:
-                type: string
-                enum: [publicado, en validación, recibido en punto de entrega, en tránsito, cancelado]
-              comentario:
-                type: string
-                description: Comentario del validador sobre la validación del ítem
+            $ref: '#/components/schemas/ValidarItemRequest'
     responses:
       '200':
         description: Ítem validado correctamente
@@ -641,13 +648,7 @@ paths:
       content:
         application/json:
           schema:
-            type: object
-            required:
-              - etiquetaEnvio
-            properties:
-              etiquetaEnvio:
-                type: string
-                enum: [SI, NO]
+            $ref: '#/components/schemas/CrearDonacionRequest'
     responses:
       '201':
         description: Donación creada correctamente
@@ -674,7 +675,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
-/donaciones/{userId}:
+/donaciones:
   get:
     tags: [donacion]
     summary: Obtener una lista de donaciones realizadas por el usuario
@@ -846,12 +847,17 @@ components:
           type: string
         rol:
           type: string
-          enum: [admin, adulto]
+          enum: [fundación, donante]
         direccion:
           type: string
+        fechaNacimiento:
+          type: string
+          format: date
+          description: Fecha de nacimiento del usuario, solo para perfiles infantiles
 
     Usuario:
       type: object
+      description: Representa la cuenta del sistema
       required:
         - userId
         - email
@@ -871,17 +877,38 @@ components:
           type: string
         rol:
           type: string
-          enum: [child, adulto, admin, validador]
+          enum: [child, donante, fundación, validador]
         fechaNacimiento:
           type: string
           format: date
         direccion:
           type: string
     
-    perfilUsuario:
+    ActualizarPerfilRequest:
+          type: object
+          properties:
+            nombre:
+              type: string
+            apellidos:
+              type: string
+            fechaNacimiento:
+              type: string
+              format: date
+            direccion:
+              type: string
+            descripcion:
+              type: string
+            imagenPerfil:
+              type: string
+              format: uri
+              description: URL de la imagen de perfil del usuario
+
+    PerfilUsuario:
       type: object
+      description: representa el perfil visible o consultable en la aplicación.
       required:
         - userId
+        - rol
         - email
         - nombre
         - apellidos
@@ -890,6 +917,9 @@ components:
       properties:
         userId:
           type: integer
+        rol:
+          type: string
+          enum: [child, donante]
         email:
           type: string
           format: email
@@ -908,11 +938,46 @@ components:
           descripcion: Información adicional sobre el usuario
         numeroDonaciones:
           type: integer
-          descripcion: Número total de donaciones realizadas por el usuario adulto
+          descripcion: Número total de donaciones realizadas por el usuario donante
         validado:
           type: boolean
           description: Indica si el perfil infantil está validado o no para publicar deseos
-      
+    
+    RegistroFundacion:
+      type: object
+      required:
+        - registroId
+        - fechaSolicitud
+        - aprobado
+        - userId
+      properties:
+        registroId:
+          type: integer
+        fechaSolicitud:
+          type: string
+          format: date
+        aprobado:
+          type: boolean
+        fechaRevision:
+          type: string
+          format: date
+        comentarioRevision:
+          type: string
+        userId:
+          type: integer
+
+    ActualizarRegistroRequest:
+      type: object
+      required:
+        - aprobado
+      properties:
+        aprobado:
+          type: boolean
+          description: Indica si el registro de la fundación ha sido aprobado o rechazado
+        comentarioRevision:
+          type: string
+          description: Comentario opcional del validador sobre la validación del registro
+    
     Item:
       type: object
       required:
@@ -938,7 +1003,7 @@ components:
           type: string
           enum: [en validación, publicado, reservado, recibido en punto de entrega, en tránsito, entregado, cancelado]
 
-    crearItemRequest:
+    CrearItemRequest:
       type: object
       required:
         - nombre
@@ -955,6 +1020,18 @@ components:
           description: URL de la imagen del ítem
         categoria:
           type: string
+
+    ValidarItemRequest:
+      type: object
+      required:
+        - estado
+      properties:
+        estado:
+          type: string
+          enum: [publicado, en validación, recibido en punto de entrega, en tránsito, cancelado]
+        comentario:
+          type: string
+          description: Comentario del validador sobre la validación del ítem
 
     Donacion:
       type: object
@@ -974,4 +1051,13 @@ components:
         createdAt:
           type: string
           format: date-time
+
+    CrearDonacionRequest:
+      type: object
+      required:
+        - etiquetaEnvio
+      properties:
+        etiquetaEnvio:
+          type: string
+          enum: [SI, NO]
   
