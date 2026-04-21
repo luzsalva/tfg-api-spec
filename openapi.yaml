@@ -517,6 +517,12 @@ paths:
         required: false
         schema:
           type: integer
+      - name: favorito
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filtrar ítems marcados como favoritos por el usuario autenticado
       - name: userId
         in: query
         required: false
@@ -977,6 +983,9 @@ components:
         estado:
           type: string
           enum: [en validación, publicado, reservado, recibido en punto de entrega, en tránsito, entregado, cancelado]
+        favorito:
+          type: boolean
+          description: Indica si el ítem está marcado como favorito por el usuario autenticado
 
     CrearItemRequest:
       type: object
