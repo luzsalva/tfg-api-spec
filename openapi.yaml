@@ -533,7 +533,7 @@ paths:
         required: false
         schema:
           type: string
-          enum: [en validación, publicado, reservado, recibido en punto de entrega, en tránsito, entregado, cancelado]
+          enum: [validación, publicado, reservado, recibido, tránsito, entregado, cancelado]
         description: Filtrar por estado del ítem en la lista de deseos, en el buscador de ítems o en el panel del validador.
     responses:
       '200':
@@ -689,7 +689,7 @@ paths:
         required: false
         schema:
           type: string
-          enum: [reservado, recibido en punto de entrega, en validación, en tránsito, entregado, cancelado]
+          enum: [reservado, recibido, validación, tránsito, entregado, cancelado]
     responses:
       '200':
         description: Lista de donaciones obtenida correctamente
@@ -917,13 +917,37 @@ components:
         descripcion:
           type: string
           descripcion: Información adicional sobre el usuario
+        imagenPerfil:
+          type: string
+          format: uri
+          description: URL de la imagen de perfil del usuario
         numeroDonaciones:
           type: integer
           descripcion: Número total de donaciones realizadas por el usuario donante
+        insignias:
+          type: array
+          description: Lista de insignias obtenidas por el usuario donante
+          items:
+            $ref: '#/components/schemas/Insignia'
         validado:
           type: boolean
           description: Indica si el perfil infantil está validado o no para publicar deseos
-    
+
+    Insignia:
+      type: object
+      required:
+        - nombre
+        - descripcion
+      properties:
+        nombre:
+          type: string
+        descripcion:
+          type: string
+        imagen:
+          type: string
+          format: uri
+          description: URL del icono de la insignia
+ 
     RegistroFundacion:
       type: object
       required:
@@ -982,7 +1006,7 @@ components:
           type: string
         estado:
           type: string
-          enum: [en validación, publicado, reservado, recibido en punto de entrega, en tránsito, entregado, cancelado]
+          enum: [validación, publicado, reservado, recibido, tránsito, entregado, cancelado]
         favorito:
           type: boolean
           description: Indica si el ítem está marcado como favorito por el usuario autenticado
@@ -1012,7 +1036,7 @@ components:
       properties:
         estado:
           type: string
-          enum: [publicado, en validación, recibido en punto de entrega, en tránsito, cancelado]
+          enum: [publicado, validación, recibido, tránsito, cancelado]
         comentario:
           type: string
           description: Comentario del validador sobre la validación del ítem
@@ -1031,7 +1055,7 @@ components:
           type: integer
         estado:
           type: string
-          enum: [reservado, recibido en punto de entrega, en validación, en tránsito, entregado, cancelado]
+          enum: [reservado, recibido, validación, tránsito, entregado, cancelado]
         createdAt:
           type: string
           format: date-time
