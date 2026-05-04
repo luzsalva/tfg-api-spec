@@ -19,6 +19,8 @@ tags:
     description: Operaciones relacionadas con los ítems de las listas de deseos
   - name: donacion
     description: Operaciones relacionadas con las donaciones de ítems
+  - name: insignias
+    description: Operaciones relacionadas con el catálogo de insignias
 
 security:
   - bearerAuth: []
@@ -314,6 +316,27 @@ paths:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
         description: Perfil de usuario no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/insignias:
+  get:
+    tags: [insignias]
+    summary: Obtener el catálogo completo de insignias
+    description: Devuelve todas las insignias disponibles en la aplicación, independientemente de si el usuario las ha desbloqueado o no.
+    responses:
+      '200':
+        description: Catálogo de insignias obtenido correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Insignia'
+      '401':
+        description: Usuario no autenticado
         content:
           application/json:
             schema:
@@ -926,7 +949,7 @@ components:
           descripcion: Número total de donaciones realizadas por el usuario donante
         insignias:
           type: array
-          description: Lista de insignias obtenidas por el usuario donante
+          description: Lista de insignias desbloqueadas por el usuario donante
           items:
             $ref: '#/components/schemas/Insignia'
         validado:
@@ -936,9 +959,13 @@ components:
     Insignia:
       type: object
       required:
+        - insigniaId
         - nombre
         - descripcion
+        - imagen
       properties:
+        insigniaId:
+          type: integer
         nombre:
           type: string
         descripcion:
@@ -946,8 +973,8 @@ components:
         imagen:
           type: string
           format: uri
-          description: URL del icono de la insignia
- 
+          description: URL del icono decorativo de la insignia
+
     RegistroFundacion:
       type: object
       required:
