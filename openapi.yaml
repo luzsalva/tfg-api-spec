@@ -1019,6 +1019,8 @@ components:
         - imagen
         - categoria
         - estado
+        - fechaCreacion
+        - publicado
       properties:
         itemId:
           type: integer
@@ -1037,6 +1039,20 @@ components:
         favorito:
           type: boolean
           description: Indica si el ítem está marcado como favorito por el usuario autenticado
+        fechaCreacion:
+          type: string
+          format: date-time
+        publicado:
+          type: boolean
+          description: Indica si el ítem está publicado o no
+        fechaRevision:
+          type: string
+          format: date-time
+          description: Fecha de la revisión del ítem por un validador antes de su publicación
+        comentarioRevision:
+          type: string
+          description: Comentario del validador sobre la validación del ítem
+      
 
     CrearItemRequest:
       type: object
@@ -1086,7 +1102,10 @@ components:
         createdAt:
           type: string
           format: date-time
-
+        mensaje:
+          $ref: '#/components/schemas/Mensaje'
+          description: Mensaje opcional del niño al donante como agradecimiento
+    
     CrearDonacionRequest:
       type: object
       required:
@@ -1095,4 +1114,17 @@ components:
         etiquetaEnvio:
           type: string
           enum: [SI, NO]
+    
+    Mensaje:
+      type: object
+      description: Mensaje de agradecimiento enviado por el niño cuando la donación ya ha sido entregada.
+      required:
+        - contenido
+        - fechaEnvio
+      properties:
+        contenido:
+          type: string
+        fechaEnvio:
+          type: string
+          format: date-time
   
