@@ -525,48 +525,53 @@ paths:
     summary: Obtener una lista de ítems con filtros opcionales. 
              Si se le pasa un userId es el concepto de lista de deseos. 
     parameters:
+      - name: publicado
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filtrar ítems publicados o pendientes de validación
       - name: categoria
         in: query
         required: false
         schema:
           type: string
+      - name: urgente
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Filtrar ítems urgentes. Un ítem es urgente cuando falta un mes o menos para su caducidad
       - name: nombre
         in: query
         required: false
         schema:
           type: string
-      - name: distancia
-        in: query
-        required: false
-        schema:
-          type: integer
       - name: favorito
         in: query
         required: false
         schema:
           type: boolean
         description: Filtrar ítems marcados como favoritos por el usuario autenticado
+      - name: ordenarPor
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [distancia, caducidad, fechaPublicacion]
+        description: Permite ordenar los ítems por distancia, fecha de caducidad o fecha de publicación
       - name: userId
         in: query
         required: false
         schema:
           type: integer
-      - name: estado
-        in: query
-        required: false
-        schema:
-          type: string
-          enum: [validación, publicado, reservado, recibido, tránsito, entregado, cancelado]
-        description: Filtrar por estado del ítem en la lista de deseos, en el buscador de ítems o en el panel del validador.
     responses:
       '200':
         description: Lista de ítems obtenida correctamente
         content:
           application/json:
             schema:
-              type: array
-              items:
-                $ref: '#/components/schemas/Item'
+                $ref: '#/components/schemas/ItemsResponse'
       '400':
         description: Filtros con formato incorrecto
         content:
@@ -612,16 +617,17 @@ paths:
 /items/{itemId}/validar:
   patch:
     tags: [items]
-    summary: Validar un ítem o confirmar un cambio de estado sujeto a revisión
-    description: Permite al validador aprobar un ítem para su publicación o confirmar
-                 estados que requieren revisión manual, como la recepción en
-                 punto de entrega o el paso a envío. Solo los validadores pueden realizar esta acción.
+    summary: Validar un ítem antes de su publicación
+    description: >-
+      Permite al validador revisar un ítem creado por un niño.
+      Si se aprueba, el ítem queda publicado. Si se rechaza, seguirá sin publicarse
+      y se guardará el comentario de revisión.
     parameters:
       - name: itemId
         in: path
         required: true
         schema:
-          type: integer   
+          type: integer
     requestBody:
       required: true
       content:
@@ -630,11 +636,11 @@ paths:
             $ref: '#/components/schemas/ValidarItemRequest'
     responses:
       '200':
-        description: Ítem validado correctamente
+        description: Ítem revisado correctamente
         content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Item'
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Item'
       '400':
         description: Faltan datos o tienen un formato incorrecto
         content:
@@ -728,6 +734,33 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
+
+/donaciones/mensajes-no-leidos:
+  get:
+    tags: [donacion]
+    summary: Obtener donaciones con mensajes no leídos del donante autenticado
+    description: Devuelve las donaciones realizadas por el usuario donante autenticado que tienen un mensaje de agradecimiento pendiente de leer.
+    responses:
+      '200':
+        description: Donaciones con mensajes no leídos obtenidas correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Donacion'
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no tiene permisos para consultar estos mensajes
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
       
 /donaciones/{donacionId}:
   delete:
@@ -784,6 +817,57 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
+
+
+/donaciones/{donacionId}/validar:
+  patch:
+    tags: [donacion]
+    summary: Validar una donación antes de pasarla a tránsito
+    description: Permite al validador confirmar que la donación ha sido recibida correctamente y puede pasar a estado tránsito.
+    parameters:
+      - name: donacionId
+        in: path
+        required: true
+        schema:
+          type: integer
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ValidarDonacionRequest'
+    responses:
+      '200':
+        description: Donación validada correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Donacion'
+      '400':
+        description: Faltan datos o tienen un formato incorrecto
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '401':
+        description: Validador no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no tiene permisos para validar donaciones
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Donación no encontrada
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
 
 components:
   securitySchemes:
@@ -918,6 +1002,7 @@ components:
         - apellidos
         - direccion
         - descripcion
+        - insignias
       properties:
         userId:
           type: integer
@@ -1010,6 +1095,36 @@ components:
           type: string
           description: Comentario opcional del validador sobre la validación del registro
     
+    ItemsResponse:
+      type: object
+      required:
+        - totalItems
+        - items
+      properties:
+        totalItems:
+          type: integer
+          description: Número total de ítems devueltos según los filtros aplicados
+          example: 8
+
+        maxItemsListaDeseos:
+          type: integer
+          nullable: true
+          description: Número máximo de ítems permitidos en la lista de deseos. 
+            Solo se devuelve cuando se consulta una lista de deseos con userId
+          example: 10
+
+        totalItemsListaDeseos:
+          type: integer
+          nullable: true
+          description: Número total de ítems que tiene el niño en su lista de deseos sin aplicar filtros. 
+            Solo se devuelve cuando se consulta una lista de deseos con userId
+          example: 4
+
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/Item'
+
     Item:
       type: object
       required:
@@ -1018,7 +1133,6 @@ components:
         - descripcion
         - imagen
         - categoria
-        - estado
         - fechaCreacion
         - publicado
       properties:
@@ -1033,22 +1147,33 @@ components:
           description: URL de la imagen del ítem
         categoria:
           type: string
-        estado:
-          type: string
-          enum: [validación, publicado, reservado, recibido, tránsito, entregado, cancelado]
         favorito:
           type: boolean
           description: Indica si el ítem está marcado como favorito por el usuario autenticado
         fechaCreacion:
           type: string
           format: date-time
+        fechaCaducidad:
+          type: string
+          format: date-time
+          description: Fecha en la que caduca el ítem. Se calcula sumando un año a la fecha de publicación
+        caducaEn:
+          type: integer
+          description: Número de días restantes hasta la caducidad del ítem
+        urgente:
+          type: boolean
+          description: Indica si el ítem es urgente. Será true cuando falte un mes o menos para su fecha de caducidad
+        distanciaKm:
+          type: number
+          format: float
+          description: Distancia aproximada en kilómetros entre el donante autenticado y el niño que publicó el ítem
         publicado:
           type: boolean
           description: Indica si el ítem está publicado o no
         fechaRevision:
           type: string
           format: date-time
-          description: Fecha de la revisión del ítem por un validador antes de su publicación
+          description: Fecha de la revisión del ítem por un validador antes de su publicación. También se usa para saber la fecha de publicación.
         comentarioRevision:
           type: string
           description: Comentario del validador sobre la validación del ítem
@@ -1075,14 +1200,14 @@ components:
     ValidarItemRequest:
       type: object
       required:
-        - estado
+        - publicado
       properties:
-        estado:
-          type: string
-          enum: [publicado, validación, recibido, tránsito, cancelado]
+        publicado:
+          type: boolean
+          description: Indica si el ítem queda publicado tras la revisión del validador
         comentario:
           type: string
-          description: Comentario del validador sobre la validación del ítem
+          description: Comentario opcional del validador sobre la revisión del ítem
 
     Donacion:
       type: object
@@ -1115,6 +1240,16 @@ components:
           type: string
           enum: [SI, NO]
     
+    ValidarDonacionRequest:
+      type: object
+      required:
+        - estado
+      properties:
+        estado:
+          type: string
+          enum: [transito, cancelado]
+          description: Estado resultante tras la validación de la donación
+    
     Mensaje:
       type: object
       description: Mensaje de agradecimiento enviado por el niño cuando la donación ya ha sido entregada.
@@ -1127,4 +1262,8 @@ components:
         fechaEnvio:
           type: string
           format: date-time
+        fechaLectura:
+          type: string
+          format: date-time
+          description: Fecha en la que el donante leyó el mensaje. Se actualiza automáticamente al consultar los detalles de la donación para el donante.
   
