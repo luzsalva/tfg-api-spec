@@ -103,7 +103,7 @@ paths:
     tags: [users]
     summary: Obtener lista de perfiles de usuarios con filtros opcionales
     description: Devuelve una lista de perfiles VISIBLES de usuarios aplicando filtros opcionales.
-                Si se filtra por rol=child, este endpoint puede ser usado por fundaciones
+                Si se filtra por rol=infantil, este endpoint puede ser usado por fundaciones
                 para consultar sus perfiles infantiles asociados o por validadores para
                 revisar perfiles infantiles. Si se filtra por rol=donante, permite buscar
                 perfiles de donantes, incluyendo filtros como número mínimo de donaciones.
@@ -113,7 +113,7 @@ paths:
         required: false
         schema:
           type: string
-          enum: [child, donante]
+          enum: [infantil, donante]
       - name: nombre
         in: query
         required: false
@@ -124,12 +124,26 @@ paths:
         required: false
         schema:
           type: string
-      - name: minDonaciones
+      - name: ordenarPor
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [numeroDonacionesDesc, numeroDonacionesAsc, nombreAsc, nombreDesc]
+        description: Permite ordenar los perfiles devueltos por número de donaciones o por nombre.
+      - name: limit
         in: query
         required: false
         schema:
           type: integer
-        description: Filtrar perfiles de donantes por número mínimo de donaciones realizadas
+          minimum: 1
+        description: Número máximo de perfiles a devolver.
+      - name: excluirUsuarioActual
+        in: query
+        required: false
+        schema:
+          type: boolean
+        description: Permite excluir al usuario autenticado de la lista de perfiles devueltos.
     responses:
       '200':
         description: Lista de perfiles obtenida correctamente
@@ -160,8 +174,8 @@ paths:
 
   post:
     tags: [users]
-    summary: Registrar un nuevo usuario child asociado a una fundación
-    description: Solo las fundaciones pueden registrar usuarios de rol child asociados a su organización. 
+    summary: Registrar un nuevo usuario infantil asociado a una fundación
+    description: Solo las fundaciones pueden registrar usuarios de rol infantil asociados a su organización. 
                 El email proporcionado deberá corresponder a la cuenta de Google que el usuario utilizará 
                 posteriormente para autenticarse en la aplicación.
     requestBody:
@@ -180,7 +194,7 @@ paths:
               email:
                 type: string
                 format: email
-                description: Email de la cuenta Google que usará el usuario child
+                description: Email de la cuenta Google que usará el usuario infantil
               nombre:
                 type: string
               apellidos:
@@ -614,6 +628,41 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
+/items/{itemId}/favorito:
+  put:
+    tags: [items]
+    summary: Marcar un ítem como favorito
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '204':
+        description: Ítem marcado como favorito correctamente
+      '401':
+        description: Usuario no autenticado
+      '404':
+        description: Ítem no encontrado
+
+  delete:
+    tags: [items]
+    summary: Quitar un ítem de favoritos
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '204':
+        description: Ítem eliminado de favoritos correctamente
+      '401':
+        description: Usuario no autenticado
+      '404':
+        description: Ítem no encontrado
+
 /items/{itemId}/validar:
   patch:
     tags: [items]
@@ -718,7 +767,22 @@ paths:
         required: false
         schema:
           type: string
-          enum: [reservado, recibido, validación, tránsito, entregado, cancelado]
+          enum: [reservado, recibido, validacion, transito, entregado, cancelado]
+      - name: grupoEstado
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [enCurso]
+        description: Permite obtener donaciones agrupadas por estado. enCurso incluye reservado, recibido, validacion y transito.
+      - name: ordenarPor
+        schema:
+          type: string
+          enum: [fechaDesc, fechaAsc]
+      - name: limit
+        schema:
+          type: integer
+          minimum: 1
     responses:
       '200':
         description: Lista de donaciones obtenida correctamente
@@ -895,12 +959,45 @@ components:
       properties:
         token:
           type: string
+        googleProfile:
+          $ref: '#/components/schemas/GoogleProfile'
         perfilCompletado:
           type: boolean
           description: Indica si el usuario ha completado su perfil después de autenticarse con Google. 
                        Si es false, el frontend redirige al usuario a la pantalla de completado de perfil.
         user:
           $ref: '#/components/schemas/Usuario'
+    
+    GoogleProfile:
+      type: object
+      description: Datos básicos devueltos por Google durante la autenticación
+      required:
+        - sub
+        - email
+        - email_verified
+        - name
+      properties:
+        sub:
+          type: string
+          description: Identificador único del usuario en Google
+        email:
+          type: string
+          format: email
+        email_verified:
+          type: boolean
+        name:
+          type: string
+          description: Nombre completo devuelto por Google
+        given_name:
+          type: string
+          description: Nombre del usuario
+        family_name:
+          type: string
+          description: Apellidos del usuario
+        picture:
+          type: string
+          format: uri
+          description: URL de la imagen de perfil de Google
 
     ErrorResponse:
       type: object
@@ -939,7 +1036,7 @@ components:
       properties:
         rol:
           type: string
-          enum: [fundación, donante]
+          enum: [fundacion, donante]
         nombre:
           type: string
         apellidos:
@@ -965,7 +1062,7 @@ components:
           type: string
         rol:
           type: string
-          enum: [child, donante, fundación, validador]
+          enum: [infantil, donante, fundacion, validador]
         fechaNacimiento:
           type: string
           format: date
@@ -1002,13 +1099,13 @@ components:
         - apellidos
         - direccion
         - descripcion
-        - insignias
+        - insigniasDesbloqueadas
       properties:
         userId:
           type: integer
         rol:
           type: string
-          enum: [child, donante]
+          enum: [infantil, donante]
         email:
           type: string
           format: email
@@ -1019,6 +1116,9 @@ components:
         fechaNacimiento:
           type: string
           format: date
+        fundacionAsociada:
+          type: string
+          description: Nombre de la fundación asociada al perfil infantil. Solo se devuelve para perfiles infantiles.
         direccion:
           type: string
           description: Dirección donde se entregarán las donaciones o de donde es el donante
@@ -1032,14 +1132,36 @@ components:
         numeroDonaciones:
           type: integer
           descripcion: Número total de donaciones realizadas por el usuario donante
-        insignias:
+        donacionesVisibles:
           type: array
-          description: Lista de insignias desbloqueadas por el usuario donante
+          description: Donaciones entregadas visibles en el perfil público del donante
           items:
-            $ref: '#/components/schemas/Insignia'
+            $ref: '#/components/schemas/DonacionVisible'
+        insigniasDesbloqueadas:
+          type: array
+          description: IDs de las insignias desbloqueadas por el usuario donante
+          items:
+            type: integer
         validado:
           type: boolean
           description: Indica si el perfil infantil está validado o no para publicar deseos
+    
+    DonacionVisible:
+      type: object
+      required:
+        - donacionId
+        - itemId
+        - nombreItem
+        - imagenItem
+      properties:
+        donacionId:
+          type: integer
+        itemId:
+          type: integer
+        nombreItem:
+          type: string
+        imagenItem:
+          type: string
 
     Insignia:
       type: object
@@ -1130,7 +1252,6 @@ components:
       required:
         - itemId
         - nombre
-        - descripcion
         - imagen
         - categoria
         - fechaCreacion
@@ -1156,9 +1277,11 @@ components:
         fechaCaducidad:
           type: string
           format: date-time
+          nullable: true
           description: Fecha en la que caduca el ítem. Se calcula sumando un año a la fecha de publicación
         caducaEn:
           type: integer
+          nullable: true
           description: Número de días restantes hasta la caducidad del ítem
         urgente:
           type: boolean
@@ -1173,6 +1296,7 @@ components:
         fechaRevision:
           type: string
           format: date-time
+          nullable: true
           description: Fecha de la revisión del ítem por un validador antes de su publicación. También se usa para saber la fecha de publicación.
         comentarioRevision:
           type: string
@@ -1214,19 +1338,32 @@ components:
       required:
         - donacionId
         - itemId
-        - estado
+        - estadoActual
         - createdAt
       properties:
         donacionId:
           type: integer
         itemId:
           type: integer
-        estado:
+        estadoActual:
           type: string
-          enum: [reservado, recibido, validación, tránsito, entregado, cancelado]
+          enum: [reservado, recibido, validacion, transito, entregado, cancelado]
         createdAt:
           type: string
           format: date-time
+        fechaEstimadaEntrega:
+          type: string
+          format: date-time
+          nullable: true
+        etiquetaEnvio:
+          type: string
+          enum: [SI, NO]
+        seguimiento:
+          type: array
+          items:
+            $ref: '#/components/schemas/SeguimientoDonacion'
+        transportista:
+          $ref: '#/components/schemas/Transportista'
         mensaje:
           $ref: '#/components/schemas/Mensaje'
           description: Mensaje opcional del niño al donante como agradecimiento
@@ -1239,7 +1376,41 @@ components:
         etiquetaEnvio:
           type: string
           enum: [SI, NO]
+
+    SeguimientoDonacion:
+      type: object
+      required:
+        - key
+        - label
+        - description
+      properties:
+        key:
+          type: string
+          enum: [reservado, recibido, validacion, transito, entregado, cancelado]
+        label:
+          type: string
+        fecha:
+          type: string
+          format: date-time
+          nullable: true
+        description:
+          type: string
     
+    Transportista:
+      type: object
+      required:
+        - nombre
+        - telefonoContacto
+        - emailContacto
+      properties:
+        nombre:
+          type: string
+        telefonoContacto:
+          type: string
+        emailContacto:
+          type: string
+          format: email
+     
     ValidarDonacionRequest:
       type: object
       required:
