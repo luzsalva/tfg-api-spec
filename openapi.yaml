@@ -579,6 +579,8 @@ paths:
         required: false
         schema:
           type: integer
+        description: Items de la lista de deseos de un niño. La lista de deseos solo tiene los items que aún no se han asociado a una donación. 
+                    Si además publicado es true, se devuelven solo los ítems publicados de la lista de deseos. Si publicado es false, se devuelven solo los ítems pendientes de validación de la lista de deseos.
     responses:
       '200':
         description: Lista de ítems obtenida correctamente
@@ -765,16 +767,17 @@ paths:
       - name: estado
         in: query
         required: false
+        style: form
+        explode: true
         schema:
-          type: string
-          enum: [reservado, recibido, validacion, transito, entregado, cancelado]
-      - name: grupoEstado
-        in: query
-        required: false
-        schema:
-          type: string
-          enum: [enCurso]
-        description: Permite obtener donaciones agrupadas por estado. enCurso incluye reservado, recibido, validacion y transito.
+          type: array
+          items:
+            type: string
+            enum: [reservado, recibido, validacion, transito, entregado, cancelado]
+        description: >
+          Lista de estados por los que filtrar las donaciones.
+          Para consultar donaciones en curso se enviarán los estados:
+          reservado, recibido, validacion y transito.
       - name: ordenarPor
         schema:
           type: string
@@ -821,6 +824,58 @@ paths:
               $ref: '#/components/schemas/ErrorResponse'
       '403':
         description: Usuario autenticado no tiene permisos para consultar estos mensajes
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/donaciones/mis-deseos:
+  get:
+    tags: [donacion]
+    summary: Obtener donaciones asociadas a los deseos del niño autenticado
+    description: >
+      Devuelve las donaciones asociadas a los ítems de la lista de deseos del
+      usuario infantil autenticado. Permite filtrar las donaciones por grupo de
+      estado para consultar deseos en curso, entregados o cancelados.
+    parameters:
+    - name: estado
+      in: query
+      required: false
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+          enum: [reservado, recibido, validacion, transito, entregado, cancelado]
+      description: >
+        Lista de estados por los que filtrar las donaciones.
+        Para consultar donaciones en curso se enviarán los estados:
+        reservado, recibido, validacion y transito.
+    - name: limit
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: Número máximo de donaciones a devolver.
+    responses:
+      '200':
+        description: Donaciones asociadas a los deseos del niño obtenidas correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Donacion'
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: Usuario autenticado no tiene permisos para consultar donaciones asociadas a deseos infantiles
         content:
           application/json:
             schema:
@@ -881,6 +936,32 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
+  
+  patch:
+    tags: [donacion]
+    summary: Actualizar una donación
+    description: Permite al niño añadir su carta de agradecimiento. Y al donante marcar el mensaje como leído.
+
+    parameters:
+      - name: donacionId
+        in: path
+        required: true
+        schema:
+          type: integer
+
+    requestBody:
+      required: true
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Mensaje'
+    responses:
+      '200':
+        description: Carta actualizada correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Donacion'
 
 
 /donaciones/{donacionId}/validar:
@@ -1274,11 +1355,6 @@ components:
         fechaCreacion:
           type: string
           format: date-time
-        fechaCaducidad:
-          type: string
-          format: date-time
-          nullable: true
-          description: Fecha en la que caduca el ítem. Se calcula sumando un año a la fecha de publicación
         caducaEn:
           type: integer
           nullable: true
@@ -1320,6 +1396,7 @@ components:
           description: URL de la imagen del ítem
         categoria:
           type: string
+          enum: [juguetes, ropa, material_escolar, libros, deporte, otros]
 
     ValidarItemRequest:
       type: object
@@ -1426,7 +1503,6 @@ components:
       description: Mensaje de agradecimiento enviado por el niño cuando la donación ya ha sido entregada.
       required:
         - contenido
-        - fechaEnvio
       properties:
         contenido:
           type: string
