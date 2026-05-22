@@ -83,7 +83,7 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/Usuario'
+              $ref: '#/components/schemas/CompleteRegistrationResponse'
       '400':
         description: Faltan datos de entrada o tienen un formato incorrecto
         content:
@@ -394,6 +394,44 @@ paths:
               $ref: '#/components/schemas/ErrorResponse'
 
 /registros/{registroId}:
+  get:
+    tags: [registros]
+    summary: Obtener el estado de la solicitud de registro
+    description: >
+      Devuelve el detalle de una solicitud de registro.
+      Las fundaciones solo pueden consultar solicitudes asociadas a su propio usuario.
+      Los usuarios validadores pueden consultar cualquier solicitud pendiente de revisión.
+    parameters:
+      - name: registroId
+        in: path
+        required: true
+        schema:
+          type: integer
+    responses:
+      '200':
+        description: Registro obtenido correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegistroFundacion'
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: El registro no pertenece al usuario autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '404':
+        description: Registro no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
   patch:
     tags: [registros]
     summary: Validar el registro de una fundación por el id del registro
@@ -1048,6 +1086,10 @@ components:
                        Si es false, el frontend redirige al usuario a la pantalla de completado de perfil.
         user:
           $ref: '#/components/schemas/Usuario'
+        registroId:
+          type: integer
+          nullable: true
+          description: Id de la solicitud asociada al usuario si es rol = fundación.
     
     GoogleProfile:
       type: object
@@ -1079,6 +1121,18 @@ components:
           type: string
           format: uri
           description: URL de la imagen de perfil de Google
+    
+    CompleteRegistrationResponse:
+      type: object
+      required:
+        - user
+      properties:
+        user:
+          $ref: '#/components/schemas/Usuario'
+        registroId:
+          type: integer
+          nullable: true
+          description: Id de la solicitud de validación creada cuando el usuario registrado es una fundación.
 
     ErrorResponse:
       type: object
