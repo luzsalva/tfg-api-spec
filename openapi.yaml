@@ -21,6 +21,8 @@ tags:
     description: Operaciones relacionadas con las donaciones de ítems
   - name: insignias
     description: Operaciones relacionadas con el catálogo de insignias
+  - name: fundacion
+    description: Operaciones privadas relacionadas con la fundación autenticada
 
 security:
   - bearerAuth: []
@@ -102,11 +104,12 @@ paths:
   get:
     tags: [users]
     summary: Obtener lista de perfiles de usuarios con filtros opcionales
-    description: Devuelve una lista de perfiles VISIBLES de usuarios aplicando filtros opcionales.
-                Si se filtra por rol=infantil, este endpoint puede ser usado por fundaciones
-                para consultar sus perfiles infantiles asociados o por validadores para
-                revisar perfiles infantiles. Si se filtra por rol=donante, permite buscar
-                perfiles de donantes, incluyendo filtros como número mínimo de donaciones.
+    description: >
+      Devuelve una lista de perfiles visibles aplicando filtros opcionales.
+      Si el usuario autenticado es una fundación y se filtra por rol=infantil,
+      solo se devuelven los perfiles infantiles asociados a dicha fundación. 
+      También es usado por validadores para revisar perfiles infantiles. 
+      Si se filtra por rol=donante, permite buscar perfiles de donantes.
     parameters:
       - name: rol
         in: query
@@ -129,8 +132,14 @@ paths:
         required: false
         schema:
           type: string
-          enum: [numeroDonacionesDesc, numeroDonacionesAsc, nombreAsc, nombreDesc]
-        description: Permite ordenar los perfiles devueltos por número de donaciones o por nombre.
+          enum:
+          - nombreAsc
+          - nombreDesc
+          - edadAsc
+          - edadDesc
+          - numeroDonacionesDesc
+          - numeroDonacionesAsc
+        description: Permite ordenar los perfiles devueltos por número de donaciones o por nombre en el caso de perfiles donantes. Y por nombre o edad en el caso de perfiles infantiles.
       - name: limit
         in: query
         required: false
@@ -1051,6 +1060,34 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
 
+/fundacion/estadisticas:
+  get:
+    tags: [fundacion]
+    summary: Obtener resumen de la fundación autenticada
+    description: >
+      Devuelve métricas agregadas de los perfiles infantiles asociados
+      a la fundación autenticada. Esta información es privada y solo
+      puede ser consultada por la propia fundación.
+    responses:
+      '200':
+        description: Resumen obtenido correctamente
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResumenFundacion'
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+      '403':
+        description: El usuario autenticado no es una fundación
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
 
 components:
   securitySchemes:
@@ -1568,3 +1605,19 @@ components:
           format: date-time
           description: Fecha en la que el donante leyó el mensaje. Se actualiza automáticamente al consultar los detalles de la donación para el donante.
   
+    ResumenFundacion:
+      type: object
+      required:
+        - totalPerfilesInfantiles
+        - totalDeseosPublicados
+        - totalDeseosCumplidos
+      properties:
+        totalPerfilesInfantiles:
+          type: integer
+          description: Número total de perfiles infantiles asociados a la fundación.
+        totalDeseosPublicados:
+          type: integer
+          description: Número total de deseos publicados por los perfiles infantiles asociados.
+        totalDeseosCumplidos:
+          type: integer
+          description: Número total de deseos cumplidos de los perfiles infantiles asociados.
