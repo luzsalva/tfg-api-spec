@@ -13,8 +13,8 @@ tags:
     description: Operaciones relacionadas con la autenticación y completado de registro de los usuarios de la aplicación
   - name: users
     description: Operaciones relacionadas con los usuarios
-  - name: registros
-    description: Operaciones relacionadas con la validación de registros de fundaciones. Solo para validadores
+  - name: validaciones
+    description: Operaciones relacionadas con las acciones de validación realizadas por los validadores en el sistema
   - name: items
     description: Operaciones relacionadas con los ítems de las listas de deseos
   - name: donacion
@@ -366,20 +366,24 @@ paths:
               $ref: '#/components/schemas/ErrorResponse'
 
 /registros:
-  
   get:
-    tags: [registros]
+    tags: [validaciones]
     summary: Obtener registros de fundaciones con filtros opcionales
-    description: Devuelve la lista de registros asociados al proceso de validación de fundaciones.
-                Usado para que los validadores consulten los registros
-                pendientes de revisión en su panel.
+    description: >
+      Devuelve la lista de registros asociados al proceso de validación de fundaciones.
+      Usado para que los validadores consulten registros pendientes, aprobados o rechazados.
     parameters:
-      - name: aprobado
+      - name: estado
         in: query
         required: false
         schema:
-          type: boolean
-        description: Filtrar registros por su estado de aprobación (true=aprobados, false=pendientes o rechazados)
+          type: string
+          enum: [pendiente, aprobado, rechazado]
+        description: >
+          Filtra los registros según su estado de revisión.
+          pendiente = aprobado false y fechaRevision null.
+          aprobado = aprobado true y fechaRevision no null.
+          rechazado = aprobado false y fechaRevision no null.
     responses:
       '200':
         description: Lista de registros obtenida correctamente
@@ -404,7 +408,7 @@ paths:
 
 /registros/{registroId}:
   get:
-    tags: [registros]
+    tags: [validaciones]
     summary: Obtener el estado de la solicitud de registro
     description: >
       Devuelve el detalle de una solicitud de registro.
@@ -442,7 +446,7 @@ paths:
             schema:
               $ref: '#/components/schemas/ErrorResponse'
   patch:
-    tags: [registros]
+    tags: [validaciones]
     summary: Validar el registro de una fundación por el id del registro
     description: Modifica el atributo aprobado a true para que pueda empezar a gestionar perfiles infantiles. 
                  Solo los validadores pueden realizar esta acción.
@@ -485,6 +489,47 @@ paths:
               $ref: '#/components/schemas/ErrorResponse'
       '404':
         description: Registro no encontrado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+/validaciones/ultimas:
+  get:
+    tags: [validaciones]
+    summary: Obtener últimas acciones realizadas por el validador autenticado
+    description: >
+      Devuelve un resumen de las últimas acciones de validación realizadas en el sistema.
+      Las acciones pueden estar asociadas a un registro de fundación, a un ítem pendiente
+      de publicación o al estado de validación de una donación. 
+    parameters:
+      - name: limit
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          default: 5
+        description: Número máximo de acciones recientes a devolver.
+    responses:
+      '200':
+        description: Últimas acciones de validación obtenidas correctamente
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/UltimaAccionValidacion'
+
+      '401':
+        description: Usuario no autenticado
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ErrorResponse'
+
+      '403':
+        description: Usuario autenticado no es un validador
         content:
           application/json:
             schema:
@@ -825,6 +870,19 @@ paths:
           Lista de estados por los que filtrar las donaciones.
           Para consultar donaciones en curso se enviarán los estados:
           reservado, recibido, validacion y transito.
+          En la vista del validador, las donaciones aprobadas incluyen los estados
+          transito y entregado, ya que ambas han superado la revisión previa al envío.
+      - name: origenCancelacion
+        in: query
+        required: false
+        schema:
+          type: string
+          enum: [donante, validador]
+        description: >
+          Permite filtrar las donaciones canceladas según el origen de la cancelación.
+          donante indica que la donación fue cancelada por el donante antes de ser recibida
+          en el punto de entrega. validador indica que la donación fue rechazada por el
+          validador después de haber sido recibida y revisada.
       - name: ordenarPor
         schema:
           type: string
@@ -1535,6 +1593,14 @@ components:
         mensaje:
           $ref: '#/components/schemas/Mensaje'
           description: Mensaje opcional del niño al donante como agradecimiento
+        origenCancelacion:
+          type: string
+          enum: [donante, validador]
+          nullable: true
+          description: >
+            Indica el origen de la cancelación cuando estadoActual es cancelado.
+            Será donante si la cancelación fue realizada por el donante antes de la entrega
+            en fundación, y validador si la donación fue rechazada durante la revisión.
     
     CrearDonacionRequest:
       type: object
@@ -1588,6 +1654,10 @@ components:
           type: string
           enum: [transito, cancelado]
           description: Estado resultante tras la validación de la donación
+        comentarioRevision:
+          type: string
+          nullable: true
+          description: Comentario opcional del validador sobre la revisión de la donación
     
     Mensaje:
       type: object
@@ -1621,3 +1691,34 @@ components:
         totalDeseosCumplidos:
           type: integer
           description: Número total de deseos cumplidos de los perfiles infantiles asociados.
+    
+    UltimaAccionValidacion:
+      type: object
+      required:
+        - entidadValidada
+        - entidadId
+        - resultado
+        - fechaRevision
+      properties:
+        entidadValidada:
+          type: string
+          enum: [registro, item, donacion]
+          description: >
+            Indica sobre qué elemento se realizó la validación. Es un campo derivado
+            usado únicamente para unificar en el panel acciones procedentes de registros,
+            ítems y donaciones.
+        entidadId:
+          type: integer
+          description: >
+            Identificador del registro, ítem o donación asociado a la acción.
+        nombre:
+          type: string
+          description: Nombre de la fundación o del item validado.
+        resultado:
+          type: string
+          enum: [aprobado, rechazado, validado_envio]
+          description: Resultado de la revisión realizada.
+        fechaRevision:
+          type: string
+          format: date-time
+          description: Fecha en la que se realizó la revisión.
