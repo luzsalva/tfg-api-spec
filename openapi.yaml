@@ -256,6 +256,8 @@ paths:
       donante para visitar el perfil de otro donante o el perfil del niño
       asociado a un ítem, por una fundación para ver los perfiles infantiles
       asociados a su organización y por un validador para revisar cualquier perfil.
+      En el caso de perfiles donantes,la respuesta puede incluir una selección de 
+      donaciones visibles entregadas, utilizadas para mostrar su perfil público.
     parameters:
       - name: userId
         in: path
@@ -1418,7 +1420,7 @@ components:
         - registroId
         - fechaSolicitud
         - aprobado
-        - userId
+        - fundacionSolicitante
       properties:
         registroId:
           type: integer
@@ -1432,8 +1434,27 @@ components:
           format: date
         comentarioRevision:
           type: string
+        fundacionSolicitante:
+          $ref: '#/components/schemas/FundacionSolicitante'
+    
+    FundacionSolicitante:
+      type: object
+      description: Datos básicos de la fundación asociada al registro de validación.
+      required:
+        - userId
+        - nombre
+        - email
+      properties:
         userId:
           type: integer
+          description: Identificador del usuario fundación.
+        nombre:
+          type: string
+          description: Nombre de la fundación.
+        email:
+          type: string
+          format: email
+          description: Email de la fundación.
 
     ActualizarRegistroRequest:
       type: object
